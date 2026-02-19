@@ -285,7 +285,7 @@ export default function ideIntegration(pi: ExtensionAPI) {
       if (!choice || choice === "Cancel") return;
 
       const GITHUB_REPO = "pierre-borckmans/pide";
-      const RELEASE_TAG = "v0.1.5";
+      const RELEASE_TAG = "v0.1.6";
 
       if (choice.startsWith("VS Code")) {
         await installVSCodePlugin(ctx, pi, GITHUB_REPO, RELEASE_TAG);
@@ -445,12 +445,19 @@ async function installJetBrainsPlugin(
     const basePaths = getJetBrainsBasePaths();
     const ideOptions: { dir: string; name: string; pluginsPath: string }[] = [];
 
+    // Known JetBrains IDE directory prefixes
+    const idePatterns = [
+      "GoLand", "IntelliJIdea", "WebStorm", "PyCharm", "CLion",
+      "Rider", "RubyMine", "PhpStorm", "DataGrip", "AndroidStudio",
+      "AppCode", "RustRover",
+    ];
+
     for (const basePath of basePaths) {
       if (!fs.existsSync(basePath)) continue;
       
       const dirs = fs.readdirSync(basePath).filter(d => {
-        const pluginsPath = path.join(basePath, d, "plugins");
-        return fs.existsSync(pluginsPath);
+        // Match directories that start with a known IDE name (e.g. GoLand2025.3)
+        return idePatterns.some(pattern => d.startsWith(pattern));
       });
 
       for (const dir of dirs) {
@@ -489,6 +496,11 @@ async function installJetBrainsPlugin(
 
     // Extract to each selected IDE's plugins folder
     for (const target of targets) {
+      // Ensure plugins directory exists
+      if (!fs.existsSync(target.pluginsPath)) {
+        fs.mkdirSync(target.pluginsPath, { recursive: true });
+      }
+
       // Remove old version if exists
       const oldPlugin = path.join(target.pluginsPath, "pide-jetbrains");
       if (fs.existsSync(oldPlugin)) {
