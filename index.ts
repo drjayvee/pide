@@ -213,7 +213,7 @@ export default function ideIntegration(pi: ExtensionAPI) {
     updateStatus(ctx);
   });
 
-  pi.on("session_switch", async (_event, ctx) => {
+  pi.on("session_before_switch", async (_event, ctx) => {
     lastCtx = ctx;
     checkForFileChanges();
   });
