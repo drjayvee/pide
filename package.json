@@ -14,8 +14,8 @@
     "image": "https://raw.githubusercontent.com/pierre-borckmans/pide/main/screenshot-v2.png"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*"
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
