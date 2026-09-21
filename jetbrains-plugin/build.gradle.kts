@@ -58,7 +58,8 @@ intellijPlatform {
         }
         ideaVersion {
             sinceBuild = "251"
-            untilBuild = "261.*"
+            // No untilBuild: stay compatible with future IDE versions.
+            // Add e.g. untilBuild = "262.*" if you want a hard upper bound.
         }
     }
 
