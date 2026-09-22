@@ -8,6 +8,7 @@
  * - File-based communication (all pi instances see the selection)
  * - Shows selection status in footer
  * - Ctrl+I to insert file reference into conversation
+ * - /pide-mode to configure manual or auto-attach insertion
  * - /ide-setup to install IDE plugins
  *
  * How it works:
@@ -24,6 +25,40 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 // File-based communication
 const PI_DIR = path.join(os.homedir(), ".pi");
 const SELECTION_FILE = path.join(PI_DIR, "ide-selection.json");
+const CONFIG_FILE = path.join(PI_DIR, "pide-config.json");
+
+interface PideConfig {
+  // "manual": insert with Ctrl+;    
+  // "auto-prompt": attach to every prompt on submit
+  mode?: "manual" | "auto-prompt";
+}
+
+function loadConfig(): PideConfig {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
+    }
+  } catch {
+    // File doesn't exist or invalid JSON
+  }
+  return { mode: "manual" };
+}
+
+function saveConfig(config: PideConfig) {
+  try {
+    if (!fs.existsSync(PI_DIR)) {
+      fs.mkdirSync(PI_DIR, { recursive: true });
+    }
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  } catch (e) {
+    console.error("Failed to write config file:", e);
+  }
+}
+
+function getMode(): "manual" | "auto-prompt" {
+  const config = loadConfig();
+  return config.mode === "auto-prompt" ? "auto-prompt" : "manual";
+}
 
 interface IDESelection {
   file: string;
@@ -83,7 +118,11 @@ function updateStatus(ctx: ExtensionContext) {
   const shortPath = getShortPath(currentSelection.file, 30);
   const fileName = path.basename(currentSelection.file);
   const ide = currentSelection.ide || "IDE";
-  const hint = theme.fg("dim", " (ctrl+; to insert) │");
+  const mode = getMode();
+  const hint =
+    mode === "auto-prompt"
+      ? theme.fg("dim", " (auto-attached to every prompt) │")
+      : theme.fg("dim", " (ctrl+; to insert) │");
 
   let statusText = "";
 
@@ -213,11 +252,6 @@ export default function ideIntegration(pi: ExtensionAPI) {
     updateStatus(ctx);
   });
 
-  pi.on("session_switch", async (_event, ctx) => {
-    lastCtx = ctx;
-    checkForFileChanges();
-  });
-
   pi.on("session_shutdown", async () => {
     if (fileWatcher) {
       fileWatcher.close();
@@ -243,6 +277,51 @@ export default function ideIntegration(pi: ExtensionAPI) {
 
       const text = formatSelectionForContext(currentSelection) + "\n";
       ctx.ui.setEditorText(text);
+    },
+  });
+
+  // Auto-attach selection to prompt on submit (if auto-prompt mode is enabled)
+  pi.on("input", async (event, ctx) => {
+    if (getMode() !== "auto-prompt") return { action: "continue" };
+
+    const selection = readSelectionFile();
+    if (!selection) return { action: "continue" };
+
+    return {
+      action: "transform",
+      text: formatSelectionForContext(selection) + "\n" + event.text,
+    };
+  });
+
+  // Command to configure insert mode
+  pi.registerCommand("pide-mode", {
+    description: "Choose how the IDE selection gets inserted into prompts",
+    handler: async (_args, ctx) => {
+      const current = getMode();
+      const currentLabel =
+        current === "auto-prompt"
+          ? "Auto-attach (added to every prompt on submit)"
+          : "Manual (insert with Ctrl+;)";
+
+      const choice = await ctx.ui.select(
+        `Insert mode (current: ${currentLabel})`,
+        [
+          "Manual - insert with Ctrl+;",
+          "Auto-attach - added to every prompt on submit",
+        ]
+      );
+
+      if (!choice) return;
+
+      if (choice.startsWith("Auto-attach")) {
+        saveConfig({ mode: "auto-prompt" });
+        ctx.ui.notify("IDE selection will now be attached to every prompt", "info");
+      } else {
+        saveConfig({ mode: "manual" });
+        ctx.ui.notify("IDE selection will be inserted manually with Ctrl+;", "info");
+      }
+
+      updateStatus(ctx);
     },
   });
 

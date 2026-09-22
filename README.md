@@ -20,6 +20,15 @@ Select code in your IDE, then press `Ctrl+;` in pi to reference it:
 
 ![usage](screenshot-usage.png)
 
+### Insert modes
+
+Use `/pide-mode` to choose how the selection gets inserted:
+
+- **Manual** (default) — press `Ctrl+;` to insert the file reference
+- **Auto-attach** — the file reference is automatically added to every prompt you submit
+
+The setting is stored in `~/.pi/pide-config.json` and the status line shows the active mode.
+
 ## Installation
 
 ### Pi Extension
@@ -87,6 +96,7 @@ use {
 | Command | Description |
 |---------|-------------|
 | `/ide` | Insert file reference into editor |
+| `/pide-mode` | Configure manual or auto-attach insertion |
 | `/ide-clear` | Clear the current selection |
 | `/ide-setup` | Install IDE plugin |
 
