@@ -8,6 +8,10 @@
     "url": "https://github.com/pierre-borckmans/pide"
   },
   "author": "Pierre Borckmans",
+  "scripts": {
+    "test": "node --test index.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
   "license": "MIT",
   "pi": {
     "extensions": ["./index.ts"],

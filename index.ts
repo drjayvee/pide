@@ -60,7 +60,7 @@ function getMode(): "manual" | "auto-prompt" {
   return config.mode === "auto-prompt" ? "auto-prompt" : "manual";
 }
 
-interface IDESelection {
+export interface IDESelection {
   file: string;
   selection?: string;
   startLine?: number;
@@ -70,12 +70,13 @@ interface IDESelection {
 }
 
 let currentSelection: IDESelection | null = null;
+let lastAttachedTimestamp: number | null = null;
 let lastCtx: ExtensionContext | null = null;
 let fileWatcher: fs.FSWatcher | null = null;
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 let lastFileContent: string | null = null;
 
-function getLineCount(selection: IDESelection): number {
+export function getLineCount(selection: IDESelection): number {
   if (selection.startLine !== undefined && selection.endLine !== undefined) {
     return selection.endLine - selection.startLine + 1;
   }
@@ -85,7 +86,7 @@ function getLineCount(selection: IDESelection): number {
   return 0;
 }
 
-function getShortPath(filePath: string, maxLen = 40): string {
+export function getShortPath(filePath: string, maxLen = 40): string {
   const basename = path.basename(filePath);
   const dirname = path.dirname(filePath);
 
@@ -121,7 +122,7 @@ function updateStatus(ctx: ExtensionContext) {
   const mode = getMode();
   const hint =
     mode === "auto-prompt"
-      ? theme.fg("dim", " (auto-attached to every prompt) │")
+      ? theme.fg("dim", " (auto-attached once) │")
       : theme.fg("dim", " (ctrl+; to insert) │");
 
   let statusText = "";
@@ -225,7 +226,7 @@ function startFileWatcher() {
   pollInterval = setInterval(checkForFileChanges, 500);
 }
 
-function formatSelectionForContext(selection: IDESelection): string {
+export function formatSelectionForContext(selection: IDESelection): string {
   // URL-style format: /path/to/file.ts:10-15
   let fileRef = selection.file;
   if (selection.startLine !== undefined && selection.endLine !== undefined) {
@@ -236,6 +237,19 @@ function formatSelectionForContext(selection: IDESelection): string {
     }
   }
   return `Referencing ${fileRef}`;
+}
+
+/**
+ * Decide whether a selection should be auto-attached to a prompt.
+ * Each selection (identified by its timestamp) is attached only once;
+ * a new selection in the IDE bumps the timestamp and becomes attachable again.
+ */
+export function shouldAttachSelection(
+  selection: IDESelection | null,
+  lastAttachedTimestamp: number | null
+): boolean {
+  if (!selection) return false;
+  return selection.timestamp !== lastAttachedTimestamp;
 }
 
 export default function ideIntegration(pi: ExtensionAPI) {
@@ -285,11 +299,15 @@ export default function ideIntegration(pi: ExtensionAPI) {
     if (getMode() !== "auto-prompt") return { action: "continue" };
 
     const selection = readSelectionFile();
-    if (!selection) return { action: "continue" };
+    if (!shouldAttachSelection(selection, lastAttachedTimestamp)) {
+      return { action: "continue" };
+    }
+    const attached = selection!;
+    lastAttachedTimestamp = attached.timestamp;
 
     return {
       action: "transform",
-      text: formatSelectionForContext(selection) + "\n" + event.text,
+      text: formatSelectionForContext(attached) + "\n" + event.text,
     };
   });
 
@@ -300,14 +318,14 @@ export default function ideIntegration(pi: ExtensionAPI) {
       const current = getMode();
       const currentLabel =
         current === "auto-prompt"
-          ? "Auto-attach (added to every prompt on submit)"
+          ? "Auto-attach (added to the next prompt, once)"
           : "Manual (insert with Ctrl+;)";
 
       const choice = await ctx.ui.select(
         `Insert mode (current: ${currentLabel})`,
         [
           "Manual - insert with Ctrl+;",
-          "Auto-attach - added to every prompt on submit",
+          "Auto-attach - added to the next prompt, once",
         ]
       );
 
@@ -315,7 +333,7 @@ export default function ideIntegration(pi: ExtensionAPI) {
 
       if (choice.startsWith("Auto-attach")) {
         saveConfig({ mode: "auto-prompt" });
-        ctx.ui.notify("IDE selection will now be attached to every prompt", "info");
+        ctx.ui.notify("IDE selection will be attached to the next prompt (once per selection)", "info");
       } else {
         saveConfig({ mode: "manual" });
         ctx.ui.notify("IDE selection will be inserted manually with Ctrl+;", "info");
