@@ -5,12 +5,14 @@ import {
   getLineCount,
   getShortPath,
   shouldAttachSelection,
+  shouldShowStatus,
   type IDESelection,
 } from "./index.ts";
 
 function makeSelection(overrides: Partial<IDESelection> = {}): IDESelection {
   return {
     file: "/home/user/project/src/main.ts",
+    selection: "const x = 1;",
     timestamp: 1000,
     ...overrides,
   };
@@ -46,7 +48,7 @@ test("getLineCount: from selection text", () => {
 });
 
 test("getLineCount: no selection info", () => {
-  assert.equal(getLineCount(makeSelection()), 0);
+  assert.equal(getLineCount(makeSelection({ selection: undefined })), 0);
 });
 
 test("getShortPath: short path unchanged", () => {
@@ -72,6 +74,15 @@ test("shouldAttachSelection: null selection never attaches", () => {
   assert.equal(shouldAttachSelection(null, 1000), false);
 });
 
+test("shouldAttachSelection: open file without selected text never attaches", () => {
+  // IDE plugins write the file on cursor moves too, with no selection fields
+  const cursorOnly = makeSelection({ timestamp: 1000, selection: undefined });
+  assert.equal(shouldAttachSelection(cursorOnly, null), false);
+
+  const whitespaceOnly = makeSelection({ timestamp: 2000, selection: "  \n\t " });
+  assert.equal(shouldAttachSelection(whitespaceOnly, null), false);
+});
+
 test("shouldAttachSelection: fresh selection attaches once", () => {
   const selection = makeSelection({ timestamp: 1000 });
 
@@ -94,4 +105,30 @@ test("shouldAttachSelection: new selection (new timestamp) attaches again", () =
 
   // And that one is also one-shot
   assert.equal(shouldAttachSelection(second, second.timestamp), false);
+});
+
+test("shouldShowStatus: hidden with no selection at all", () => {
+  assert.equal(shouldShowStatus(null, null, "manual"), false);
+  assert.equal(shouldShowStatus(null, null, "auto-prompt"), false);
+});
+
+test("shouldShowStatus: manual mode always shows the current file/selection", () => {
+  const cursorOnly = makeSelection({ selection: undefined });
+  assert.equal(shouldShowStatus(cursorOnly, null, "manual"), true);
+
+  const attached = makeSelection({ timestamp: 1000 });
+  assert.equal(shouldShowStatus(attached, attached.timestamp, "manual"), true);
+});
+
+test("shouldShowStatus: auto-prompt mode hides when nothing will be attached", () => {
+  // Cursor move without selected text -> hidden
+  const cursorOnly = makeSelection({ timestamp: 1000, selection: undefined });
+  assert.equal(shouldShowStatus(cursorOnly, null, "auto-prompt"), false);
+
+  // Pending selection -> shown
+  const pending = makeSelection({ timestamp: 2000 });
+  assert.equal(shouldShowStatus(pending, null, "auto-prompt"), true);
+
+  // Already attached -> hidden again
+  assert.equal(shouldShowStatus(pending, pending.timestamp, "auto-prompt"), false);
 });

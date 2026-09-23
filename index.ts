@@ -110,15 +110,16 @@ function updateStatus(ctx: ExtensionContext) {
 
   const theme = ctx.ui.theme;
 
-  if (!currentSelection) {
+  if (!shouldShowStatus(currentSelection, lastAttachedTimestamp, getMode())) {
     ctx.ui.setStatus("ide-selection", undefined);
     return;
   }
 
-  const lineCount = getLineCount(currentSelection);
-  const shortPath = getShortPath(currentSelection.file, 30);
-  const fileName = path.basename(currentSelection.file);
-  const ide = currentSelection.ide || "IDE";
+  const selection = currentSelection!;
+  const lineCount = getLineCount(selection);
+  const shortPath = getShortPath(selection.file, 30);
+  const fileName = path.basename(selection.file);
+  const ide = selection.ide || "IDE";
   const mode = getMode();
   const hint =
     mode === "auto-prompt"
@@ -127,7 +128,7 @@ function updateStatus(ctx: ExtensionContext) {
 
   let statusText = "";
 
-  if (currentSelection.selection) {
+  if (selection.selection) {
     // We have selected text
     const icon = theme.fg("accent", "󰆏");
     const lines = theme.fg("success", `${lineCount}`);
@@ -249,7 +250,28 @@ export function shouldAttachSelection(
   lastAttachedTimestamp: number | null
 ): boolean {
   if (!selection) return false;
+  // Ignore cursor moves / open-file events that carry no actual selected text
+  if (!selection.selection || selection.selection.trim().length === 0) {
+    return false;
+  }
   return selection.timestamp !== lastAttachedTimestamp;
+}
+
+/**
+ * Decide whether the footer status should be shown.
+ * In auto-prompt mode, hide it when no reference would be attached
+ * (no selected text, or the selection was already attached).
+ */
+export function shouldShowStatus(
+  selection: IDESelection | null,
+  lastAttachedTimestamp: number | null,
+  mode: "manual" | "auto-prompt"
+): boolean {
+  if (!selection) return false;
+  if (mode === "auto-prompt") {
+    return shouldAttachSelection(selection, lastAttachedTimestamp);
+  }
+  return true;
 }
 
 export default function ideIntegration(pi: ExtensionAPI) {
@@ -304,6 +326,7 @@ export default function ideIntegration(pi: ExtensionAPI) {
     }
     const attached = selection!;
     lastAttachedTimestamp = attached.timestamp;
+    updateStatus(ctx);
 
     return {
       action: "transform",
