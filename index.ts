@@ -227,9 +227,13 @@ function startFileWatcher() {
   pollInterval = setInterval(checkForFileChanges, 500);
 }
 
-export function formatSelectionForContext(selection: IDESelection): string {
-  // URL-style format: /path/to/file.ts:10-15
-  let fileRef = selection.file;
+export function formatSelectionForContext(
+  selection: IDESelection,
+  cwd?: string
+): string {
+  // URL-style format: path/to/file.ts:10-15
+  // Paths inside pi's working directory are made relative for readability.
+  let fileRef = cwd ? relativizePath(selection.file, cwd) : selection.file;
   if (selection.startLine !== undefined && selection.endLine !== undefined) {
     if (selection.startLine === selection.endLine) {
       fileRef += `:${selection.startLine}`;
@@ -238,6 +242,18 @@ export function formatSelectionForContext(selection: IDESelection): string {
     }
   }
   return `Referencing ${fileRef}`;
+}
+
+/**
+ * Make an absolute file path relative to pi's cwd when the file lives
+ * inside that checkout; otherwise return the original path unchanged.
+ */
+export function relativizePath(filePath: string, cwd: string): string {
+  const rel = path.relative(path.resolve(cwd), path.resolve(filePath));
+  if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) {
+    return rel;
+  }
+  return filePath;
 }
 
 /**
@@ -311,7 +327,7 @@ export default function ideIntegration(pi: ExtensionAPI) {
         return;
       }
 
-      const text = formatSelectionForContext(currentSelection) + "\n";
+      const text = formatSelectionForContext(currentSelection, ctx.cwd) + "\n";
       ctx.ui.setEditorText(text);
     },
   });
@@ -330,7 +346,7 @@ export default function ideIntegration(pi: ExtensionAPI) {
 
     return {
       action: "transform",
-      text: formatSelectionForContext(attached) + "\n" + event.text,
+      text: formatSelectionForContext(attached, ctx.cwd) + "\n" + event.text,
     };
   });
 
@@ -386,7 +402,7 @@ export default function ideIntegration(pi: ExtensionAPI) {
         return;
       }
 
-      const text = formatSelectionForContext(currentSelection) + "\n";
+      const text = formatSelectionForContext(currentSelection, ctx.cwd) + "\n";
       ctx.ui.pasteToEditor(text);
     },
   });

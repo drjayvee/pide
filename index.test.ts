@@ -4,6 +4,7 @@ import {
   formatSelectionForContext,
   getLineCount,
   getShortPath,
+  relativizePath,
   shouldAttachSelection,
   shouldShowStatus,
   type IDESelection,
@@ -37,6 +38,45 @@ test("formatSelectionForContext: line range", () => {
     formatSelectionForContext(makeSelection({ startLine: 10, endLine: 15 })),
     "Referencing /home/user/project/src/main.ts:10-15"
   );
+});
+
+test("formatSelectionForContext: strips cwd for files inside the checkout", () => {
+  assert.equal(
+    formatSelectionForContext(
+      makeSelection({ startLine: 38, endLine: 42 }),
+      "/home/user/project"
+    ),
+    "Referencing src/main.ts:38-42"
+  );
+});
+
+test("formatSelectionForContext: keeps full path outside the checkout", () => {
+  assert.equal(
+    formatSelectionForContext(makeSelection(), "/home/user/other"),
+    "Referencing /home/user/project/src/main.ts"
+  );
+});
+
+test("formatSelectionForContext: cwd must not match a sibling prefix", () => {
+  assert.equal(
+    formatSelectionForContext(makeSelection(), "/home/user/proj"),
+    "Referencing /home/user/project/src/main.ts"
+  );
+});
+
+test("relativizePath: nested file becomes relative", () => {
+  assert.equal(
+    relativizePath("/repo/app/javascript/foo.js", "/repo"),
+    "app/javascript/foo.js"
+  );
+});
+
+test("relativizePath: cwd itself is unchanged (no relative path)", () => {
+  assert.equal(relativizePath("/repo", "/repo"), "/repo");
+});
+
+test("relativizePath: trailing slash on cwd still relativizes", () => {
+  assert.equal(relativizePath("/repo/src/a.ts", "/repo/"), "src/a.ts");
 });
 
 test("getLineCount: from start/end lines", () => {
