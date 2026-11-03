@@ -2,7 +2,7 @@
   "name": "pide-vscode",
   "displayName": "Pi IDE Integration",
   "description": "Send current file/selection to pi coding agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "your-name",
   "engines": {
     "vscode": "^1.85.0"

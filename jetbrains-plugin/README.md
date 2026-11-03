@@ -13,14 +13,14 @@ Requires JDK 17+.
 ./gradlew buildPlugin
 
 # The plugin zip will be at:
-# build/distributions/pide-jetbrains-0.1.0.zip
+# build/distributions/pide-jetbrains-0.2.0.zip
 ```
 
 ## Installing
 
 1. Build the plugin (see above)
 2. In your JetBrains IDE: **Settings → Plugins → ⚙️ → Install Plugin from Disk...**
-3. Select `build/distributions/pide-jetbrains-0.1.0.zip`
+3. Select `build/distributions/pide-jetbrains-0.2.0.zip`
 4. Restart the IDE
 
 ## Usage

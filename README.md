@@ -62,7 +62,7 @@ pi install github.com/pierre-borckmans/pide
 
 **VS Code / Cursor / VSCodium:**
 ```bash
-code --install-extension ./vscode-plugin/pide-vscode-0.1.0.vsix
+code --install-extension ./vscode-plugin/pide-vscode-0.2.0.vsix
 ```
 
 **Neovim (lazy.nvim):**
@@ -87,7 +87,7 @@ use {
 
 **JetBrains (IntelliJ, GoLand, WebStorm, PyCharm, etc.):**
 1. Build: `cd jetbrains-plugin && ./gradlew buildPlugin`
-2. Install: Settings → Plugins → ⚙️ → Install from Disk → select `build/distributions/pide-jetbrains-0.1.0.zip`
+2. Install: Settings → Plugins → ⚙️ → Install from Disk → select `build/distributions/pide-jetbrains-0.2.0.zip`
 
 ## Commands
 

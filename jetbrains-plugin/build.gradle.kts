@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.pide"
-version = "0.1.0"
+version = "0.2.0"
 
 repositories {
     mavenCentral()
@@ -47,7 +47,7 @@ intellijPlatform {
     pluginConfiguration {
         id = "com.pide.jetbrains"
         name = "Pi IDE Integration"
-        version = "0.1.0"
+        version = "0.2.0"
         description = """
             Sends current file and selection to pi coding agent.
             When you select code or open a file, the selection is sent to pi where you can
