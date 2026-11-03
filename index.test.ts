@@ -22,21 +22,21 @@ function makeSelection(overrides: Partial<IDESelection> = {}): IDESelection {
 test("formatSelectionForContext: file only", () => {
   assert.equal(
     formatSelectionForContext(makeSelection()),
-    "Referencing /home/user/project/src/main.ts"
+    "@/home/user/project/src/main.ts"
   );
 });
 
-test("formatSelectionForContext: single line", () => {
+test("formatSelectionForContext: single line still gets a line number", () => {
   assert.equal(
     formatSelectionForContext(makeSelection({ startLine: 10, endLine: 10 })),
-    "Referencing /home/user/project/src/main.ts:10"
+    "@/home/user/project/src/main.ts:10"
   );
 });
 
 test("formatSelectionForContext: line range", () => {
   assert.equal(
     formatSelectionForContext(makeSelection({ startLine: 10, endLine: 15 })),
-    "Referencing /home/user/project/src/main.ts:10-15"
+    "@/home/user/project/src/main.ts:10-15"
   );
 });
 
@@ -46,21 +46,21 @@ test("formatSelectionForContext: strips cwd for files inside the checkout", () =
       makeSelection({ startLine: 38, endLine: 42 }),
       "/home/user/project"
     ),
-    "Referencing src/main.ts:38-42"
+    "@src/main.ts:38-42"
   );
 });
 
 test("formatSelectionForContext: keeps full path outside the checkout", () => {
   assert.equal(
     formatSelectionForContext(makeSelection(), "/home/user/other"),
-    "Referencing /home/user/project/src/main.ts"
+    "@/home/user/project/src/main.ts"
   );
 });
 
 test("formatSelectionForContext: cwd must not match a sibling prefix", () => {
   assert.equal(
     formatSelectionForContext(makeSelection(), "/home/user/proj"),
-    "Referencing /home/user/project/src/main.ts"
+    "@/home/user/project/src/main.ts"
   );
 });
 

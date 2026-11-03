@@ -231,8 +231,10 @@ export function formatSelectionForContext(
   selection: IDESelection,
   cwd?: string
 ): string {
-  // URL-style format: path/to/file.ts:10-15
+  // URL-style format: @path/to/file.ts:10-15
   // Paths inside pi's working directory are made relative for readability.
+  // Line numbers are always included when the IDE reports them, even for
+  // single-line selections (:10) — easier to delete than to look up.
   let fileRef = cwd ? relativizePath(selection.file, cwd) : selection.file;
   if (selection.startLine !== undefined && selection.endLine !== undefined) {
     if (selection.startLine === selection.endLine) {
@@ -241,7 +243,7 @@ export function formatSelectionForContext(
       fileRef += `:${selection.startLine}-${selection.endLine}`;
     }
   }
-  return `Referencing ${fileRef}`;
+  return `@${fileRef}`;
 }
 
 /**
@@ -327,7 +329,9 @@ export default function ideIntegration(pi: ExtensionAPI) {
         return;
       }
 
-      const text = formatSelectionForContext(currentSelection, ctx.cwd) + "\n";
+      // No trailing newline: keep the cursor on the same line so the user
+      // can continue typing right after the reference.
+      const text = formatSelectionForContext(currentSelection, ctx.cwd);
       ctx.ui.setEditorText(text);
     },
   });
@@ -402,7 +406,7 @@ export default function ideIntegration(pi: ExtensionAPI) {
         return;
       }
 
-      const text = formatSelectionForContext(currentSelection, ctx.cwd) + "\n";
+      const text = formatSelectionForContext(currentSelection, ctx.cwd);
       ctx.ui.pasteToEditor(text);
     },
   });
