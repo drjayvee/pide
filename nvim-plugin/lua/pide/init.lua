@@ -115,6 +115,11 @@ local function send_selection(opts)
       data.selection = selection.text
       data.startLine = selection.start_line
       data.endLine = selection.end_line
+    else
+      -- No selection: report the cursor line so pi can reference file:line
+      local cursor_line = vim.fn.line(".")
+      data.startLine = cursor_line
+      data.endLine = cursor_line
     end
 
     -- Write to file

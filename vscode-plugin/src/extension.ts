@@ -52,6 +52,11 @@ function sendSelection(immediate = false) {
       data.selection = document.getText(selection);
       data.startLine = selection.start.line + 1;
       data.endLine = selection.end.line + 1;
+    } else {
+      // No selection: report the cursor line so pi can reference file:line
+      const cursorLine = selection.active.line + 1;
+      data.startLine = cursorLine;
+      data.endLine = cursorLine;
     }
 
     try {

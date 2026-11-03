@@ -6,6 +6,8 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.event.CaretEvent
+import com.intellij.openapi.editor.event.CaretListener
 import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.editor.event.SelectionEvent
@@ -49,9 +51,10 @@ class PiSelectionService : Disposable {
                 append("  \"timestamp\": ${System.currentTimeMillis()}")
                 if (!selection.isNullOrEmpty()) {
                     append(",\n  \"selection\": \"${escapeJson(selection)}\"")
-                    startLine?.let { append(",\n  \"startLine\": $it") }
-                    endLine?.let { append(",\n  \"endLine\": $it") }
                 }
+                // Line numbers are also sent without a selection (cursor line)
+                startLine?.let { append(",\n  \"startLine\": $it") }
+                endLine?.let { append(",\n  \"endLine\": $it") }
                 append("\n}")
             }
 
@@ -132,8 +135,21 @@ class PiStartupActivity : ProjectActivity {
                     val endLine = document.getLineNumber(selection.selectionEnd) + 1
                     service.sendSelection(file, selection.selectedText, startLine, endLine)
                 } else {
-                    service.sendSelection(file, null, null, null)
+                    val cursorLine = document.getLineNumber(e.editor.caretModel.offset) + 1
+                    service.sendSelection(file, null, cursorLine, cursorLine)
                 }
+            }
+        })
+
+        // SelectionListener doesn't fire on plain caret moves; report the
+        // cursor line so pi can reference file:line without a selection
+        editor.caretModel.addCaretListener(object : CaretListener {
+            override fun caretPositionChanged(event: CaretEvent) {
+                if (event.editor.selectionModel.hasSelection()) return
+                val document = event.editor.document
+                val file = FileDocumentManager.getInstance().getFile(document)
+                val cursorLine = document.getLineNumber(event.editor.caretModel.offset) + 1
+                service.sendSelection(file, null, cursorLine, cursorLine)
             }
         })
     }
