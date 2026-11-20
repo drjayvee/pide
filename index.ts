@@ -227,6 +227,13 @@ function startFileWatcher() {
   pollInterval = setInterval(checkForFileChanges, 500);
 }
 
+// Number of lines of surrounding context included above and below a
+// selection in the numbered excerpt.
+const EXCERPT_CONTEXT_LINES = 2;
+// Selections longer than this fall back to the bare @file:lines reference,
+// to keep prompts from bloating.
+const MAX_EXCERPT_SELECTION_LINES = 40;
+
 export function formatSelectionForContext(
   selection: IDESelection,
   cwd?: string
@@ -243,7 +250,45 @@ export function formatSelectionForContext(
       fileRef += `:${selection.startLine}-${selection.endLine}`;
     }
   }
-  return `@${fileRef}`;
+  const ref = `@${fileRef}`;
+
+  // Embed the referenced lines in a fenced, line-numbered block so the agent
+  // sees exactly what is meant without having to count lines in read output.
+  const excerpt = buildNumberedExcerpt(selection);
+  return excerpt ? `${ref}\n${excerpt}` : ref;
+}
+
+/**
+ * Read the selected lines (plus a small context window) straight from disk
+ * and render them as a fenced code block with explicit line numbers.
+ * Returns null when no excerpt can be produced (no line info, file
+ * unreadable, or selection too large).
+ */
+export function buildNumberedExcerpt(selection: IDESelection): string | null {
+  const { startLine, endLine } = selection;
+  if (startLine === undefined || endLine === undefined) return null;
+  if (startLine < 1 || endLine < startLine) return null;
+  if (endLine - startLine + 1 > MAX_EXCERPT_SELECTION_LINES) return null;
+
+  let lines: string[];
+  try {
+    lines = fs.readFileSync(selection.file, "utf-8").split("\n");
+  } catch {
+    return null; // File unreadable (deleted, moved, unsaved buffer...)
+  }
+  if (startLine > lines.length) return null;
+
+  const from = Math.max(1, startLine - EXCERPT_CONTEXT_LINES);
+  const to = Math.min(lines.length, endLine + EXCERPT_CONTEXT_LINES);
+
+  const width = String(to).length;
+  const body = lines
+    .slice(from - 1, to)
+    .map((line, i) => `${String(from + i).padStart(width)} | ${line}`)
+    .join("\n");
+
+  const lang = path.extname(selection.file).slice(1);
+  return `\`\`\`${lang}\n${body}\n\`\`\``;
 }
 
 /**

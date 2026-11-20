@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
+  buildNumberedExcerpt,
   formatSelectionForContext,
   getLineCount,
   getShortPath,
@@ -9,6 +13,15 @@ import {
   shouldShowStatus,
   type IDESelection,
 } from "./index.ts";
+
+function makeTempFile(contents: string, ext = ".ts"): string {
+  const file = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "pide-test-")),
+    `main${ext}`
+  );
+  fs.writeFileSync(file, contents);
+  return file;
+}
 
 function makeSelection(overrides: Partial<IDESelection> = {}): IDESelection {
   return {
@@ -171,4 +184,90 @@ test("shouldShowStatus: auto-prompt mode hides when nothing will be attached", (
 
   // Already attached -> hidden again
   assert.equal(shouldShowStatus(pending, pending.timestamp, "auto-prompt"), false);
+});
+
+test("buildNumberedExcerpt: numbers the selected lines with context", () => {
+  const file = makeTempFile(
+    ["a", "b", "c", "d", "e", "f", "g"].join("\n")
+  );
+  const excerpt = buildNumberedExcerpt(
+    makeSelection({ file, startLine: 4, endLine: 4 })
+  );
+  assert.equal(
+    excerpt,
+    ["```ts", "2 | b", "3 | c", "4 | d", "5 | e", "6 | f", "```"].join("\n")
+  );
+});
+
+test("buildNumberedExcerpt: clamps context at file boundaries", () => {
+  const file = makeTempFile(["a", "b", "c"].join("\n"));
+  const excerpt = buildNumberedExcerpt(
+    makeSelection({ file, startLine: 1, endLine: 2 })
+  );
+  assert.equal(excerpt, ["```ts", "1 | a", "2 | b", "3 | c", "```"].join("\n"));
+});
+
+test("buildNumberedExcerpt: uses the file extension as fence language", () => {
+  const file = makeTempFile("x = 1", ".py");
+  const excerpt = buildNumberedExcerpt(
+    makeSelection({ file, startLine: 1, endLine: 1 })
+  );
+  assert.ok(excerpt!.startsWith("```py\n"));
+});
+
+test("buildNumberedExcerpt: pads line numbers to the widest number", () => {
+  const file = makeTempFile(
+    Array.from({ length: 12 }, (_, i) => `line${i + 1}`).join("\n")
+  );
+  const excerpt = buildNumberedExcerpt(
+    makeSelection({ file, startLine: 10, endLine: 10 })
+  );
+  assert.ok(excerpt!.includes("\n 8 | line8\n"));
+  assert.ok(excerpt!.includes("\n10 | line10\n"));
+});
+
+test("buildNumberedExcerpt: null when there is no line info", () => {
+  const file = makeTempFile("a\nb");
+  assert.equal(buildNumberedExcerpt(makeSelection({ file })), null);
+});
+
+test("buildNumberedExcerpt: null when the file is unreadable", () => {
+  assert.equal(
+    buildNumberedExcerpt(
+      makeSelection({
+        file: "/nonexistent/dir/file.ts",
+        startLine: 1,
+        endLine: 1,
+      })
+    ),
+    null
+  );
+});
+
+test("buildNumberedExcerpt: null when startLine is past end of file", () => {
+  const file = makeTempFile("a\nb");
+  assert.equal(
+    buildNumberedExcerpt(makeSelection({ file, startLine: 5, endLine: 5 })),
+    null
+  );
+});
+
+test("buildNumberedExcerpt: null when the selection is too large", () => {
+  const file = makeTempFile(
+    Array.from({ length: 60 }, (_, i) => `line${i + 1}`).join("\n")
+  );
+  assert.equal(
+    buildNumberedExcerpt(makeSelection({ file, startLine: 1, endLine: 41 })),
+    null
+  );
+});
+
+test("formatSelectionForContext: appends the numbered excerpt after the ref", () => {
+  const file = makeTempFile(["a", "b", "c", "d", "e"].join("\n"));
+  const text = formatSelectionForContext(
+    makeSelection({ file, startLine: 3, endLine: 3 })
+  );
+  const [ref, ...rest] = text.split("\n");
+  assert.equal(ref, `@${file}:3`);
+  assert.equal(rest.join("\n"), ["```ts", "1 | a", "2 | b", "3 | c", "4 | d", "5 | e", "```"].join("\n"));
 });

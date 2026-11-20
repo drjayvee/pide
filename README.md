@@ -20,6 +20,11 @@ Select code in your IDE, then press `Ctrl+;` in pi to reference it:
 
 ![usage](screenshot-usage.png)
 
+The reference is inserted as `@path/to/file.ts:10-15` followed by the
+referenced lines in a fenced block with explicit line numbers (plus two
+lines of context), so the agent knows exactly which code you mean without
+counting lines. Selections over 40 lines fall back to the bare reference.
+
 ### Insert modes
 
 Use `/pide-mode` to choose how the selection gets inserted:
